@@ -224,28 +224,24 @@ status_t process_register(vmi_instance_t vmi,
                           registers_t reg,
                           mem_event_request_t req)
 {
-    event_iter_t i;
-    vmi_event_t event, *eptr;
-    event_callback_t callback;
 
-    for_each_event(vmi, i, eptr, callback){
-        if(eptr->type==VMI_REGISTER_EVENT && eptr->reg_event.reg == reg){
-            /* reg_event.equal allows you to set a reg event for 
-             *  a specific VALUE of the register (passed in req.gfn) 
+    struct event_handler_storage *store=(struct event_handler_storage *)g_hash_table_lookup(vmi->reg_event_handlers, &reg);
+    if(store) {
+            /* reg_event.equal allows you to set a reg event for
+             *  a specific VALUE of the register (passed in req.gfn)
              */
-            if(eptr->reg_event.equal && eptr->reg_event.equal != req.gfn)
+            if(store->event->reg_event.equal && store->event->reg_event.equal != req.gfn)
                 return VMI_SUCCESS;
-            event = *eptr;
-            event.reg_event.value = req.gfn;
-            event.vcpu_id = req.vcpu_id;
-            
+
+            store->event->reg_event.value = req.gfn;
+            store->event->vcpu_id = req.vcpu_id;
+
             /* TODO MARESCA: note that vmi_event_t lacks a flags member
              *   so we have no req.flags equivalent. might need to add
              *   e.g !!(req.flags & MEM_EVENT_FLAG_VCPU_PAUSED)  would be nice
              */
-            callback(vmi, event);
+            store->callback(vmi, store->event);
             return VMI_SUCCESS;
-        }
     }
     return VMI_FAILURE;
 }
@@ -268,20 +264,16 @@ status_t process_mem(vmi_instance_t vmi, mem_event_request_t req)
     xc_domain_hvm_getcontext_partial(xch, dom,
          HVM_SAVE_CODE(CPU), req.vcpu_id, &ctx, sizeof(ctx));
 
-    for_each_event(vmi, i, eptr, callback){
-        if(eptr->type==VMI_MEMORY_EVENT){
-            page = eptr->mem_event.page;
-            npages = eptr->mem_event.npages;
-            if(req.gfn >= page && req.gfn <= (page+(getpagesize()*npages))){
-                event = *eptr;
-                event.mem_event.gla = req.gla;
-                event.mem_event.gfn = req.gfn;
-                event.mem_event.offset = req.offset;
-                event.vcpu_id = req.vcpu_id;
+    struct event_handler_storage *store=(struct event_handler_storage *)g_hash_table_lookup(vmi->mem_event_handlers, &req.gfn);
+    if(store && store->event) {
+                store->event->mem_event.gla = req.gla;
+                store->event->mem_event.gfn = req.gfn;
+                store->event->mem_event.offset = req.offset;
+                store->event->vcpu_id = req.vcpu_id;
 
-                if(req.access_r) event.mem_event.out_access = VMI_MEM_R;
-                else if(req.access_w) event.mem_event.out_access = VMI_MEM_W;
-                else if(req.access_x) event.mem_event.out_access = VMI_MEM_X;
+                if(req.access_r) store->event->mem_event.out_access = VMI_MEM_R;
+                else if(req.access_w) store->event->mem_event.out_access = VMI_MEM_W;
+                else if(req.access_x) store->event->mem_event.out_access = VMI_MEM_X;
 
                 /* TODO MARESCA: decide whether it's worthwhile to emulate xen-access here and call the following
                  *    note: the 'access' variable is basically discarded in that spot. perhaps it's really only called
@@ -289,11 +281,9 @@ status_t process_mem(vmi_instance_t vmi, mem_event_request_t req)
                  * hvmmem_access_t access;
                  * rc = xc_hvm_get_mem_access(xch, domain_id, event.mem_event.gfn, &access);
                  */
-                callback(vmi, event);
+                store->callback(vmi, store->event);
 
                 return VMI_SUCCESS;
-            }
-        }
     }
     return VMI_FAILURE;
 }

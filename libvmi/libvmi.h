@@ -1398,7 +1398,7 @@ typedef struct {
 typedef struct {
     // IN
     addr_t page;
-    uint64_t npages;
+    uint64_t npages; // Unused at the moment
     vmi_mem_access_t in_access;
     // OUT
     addr_t gla;
@@ -1417,7 +1417,7 @@ typedef struct vmi_event {
     void * data;  // Maybe allow some arbitrary data to follow the event?
 } vmi_event_t;
 
-typedef void (*event_callback_t)(vmi_instance_t vmi, vmi_event_t event);
+typedef void (*event_callback_t)(vmi_instance_t vmi, vmi_event_t *event);
 
 /**
  * Register to handle the event specified by the vmi_event object.
@@ -1429,7 +1429,7 @@ typedef void (*event_callback_t)(vmi_instance_t vmi, vmi_event_t event);
  */
 status_t vmi_handle_event(
     vmi_instance_t vmi,
-    vmi_event_t event,
+    vmi_event_t *event,
     event_callback_t callback);
 
 /**
@@ -1441,7 +1441,7 @@ status_t vmi_handle_event(
  */
 status_t vmi_clear_event(
     vmi_instance_t vmi,
-    vmi_event_t event);
+    vmi_event_t *event);
 
 /**
  * Listen for events until one occurs or a timeout.

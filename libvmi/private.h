@@ -150,7 +150,14 @@ struct vmi_instance {
 
     unsigned int num_vcpus; /**< number of VCPUs used by this instance */
 
-    GHashTable *event_handlers; /**< event->functions mapping for events */
+    GHashTable *mem_event_handlers; /**< mem event to functions mapping (key: reg) */
+
+    GHashTable *reg_event_handlers; /**< reg event to functions mapping (key: page) */
+};
+
+struct event_handler_storage {
+    vmi_event_t *event;
+    event_callback_t callback;
 };
 
 /** Windows' UNICODE_STRING structure (x86) */
