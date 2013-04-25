@@ -51,9 +51,6 @@ static void event_entry_free (gpointer key, gpointer value, gpointer data)
     vmi_instance_t vmi=(vmi_instance_t)data;
     struct event_handler_storage *store=(struct event_handler_storage *)value;
     vmi_clear_event(vmi, store->event);
-
-    // RFC: should we free here?
-    if (store && store->event) free(store->event);
 }
 
 void events_init (vmi_instance_t vmi)
@@ -83,6 +80,24 @@ void events_destroy (vmi_instance_t vmi)
 
 //----------------------------------------------------------------------------
 // Public event functions.
+
+vmi_event_t *vmi_get_reg_event (vmi_instance_t vmi,
+                              registers_t reg) {
+    struct event_handler_storage *store=
+        (struct event_handler_storage *)g_hash_table_lookup(vmi->reg_event_handlers, &reg);
+
+    if(store) return store->event;
+    return NULL;
+}
+
+vmi_event_t *vmi_get_mem_event (vmi_instance_t vmi,
+                              addr_t page) {
+    struct event_handler_storage *store=
+        (struct event_handler_storage *)g_hash_table_lookup(vmi->mem_event_handlers, &page);
+
+    if(store) return store->event;
+    return NULL;
+}
 
 status_t vmi_handle_event (vmi_instance_t vmi,
                            vmi_event_t* event,

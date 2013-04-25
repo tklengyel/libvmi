@@ -1444,6 +1444,28 @@ status_t vmi_clear_event(
     vmi_event_t *event);
 
 /**
+ * Return the pointer to the vmi_event_t if one is set on the given register.
+ *
+ * @param[in] vmi LibVMI instance
+ * @param[in] reg Register to check
+ * @return vmi_event_t* or NULL if none found
+ */
+vmi_event_t *vmi_get_reg_event(
+    vmi_instance_t vmi,
+    registers_t reg);
+
+/**
+ * Return the pointer to the vmi_event_t if one is set on the given page.
+ *
+ * @param[in] vmi LibVMI instance
+ * @param[in] page Page to check
+ * @return vmi_event_t* or NULL if none found
+ */
+vmi_event_t *vmi_get_mem_event(
+    vmi_instance_t vmi,
+    addr_t page);
+
+/**
  * Listen for events until one occurs or a timeout.
  *
  * @param[in] vmi LibVMI instance
