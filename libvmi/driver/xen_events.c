@@ -225,32 +225,32 @@ status_t process_register(vmi_instance_t vmi,
                           mem_event_request_t req)
 {
 
-    struct event_handler_storage *store=(struct event_handler_storage *)g_hash_table_lookup(vmi->reg_event_handlers, &reg);
-    if(store) {
+    vmi_event_t * event = g_hash_table_lookup(vmi->reg_events, &reg);
+
+    if(event) {
             /* reg_event.equal allows you to set a reg event for
              *  a specific VALUE of the register (passed in req.gfn)
              */
-            if(store->event->reg_event.equal && store->event->reg_event.equal != req.gfn)
+            if(event->reg_event.equal && event->reg_event.equal != req.gfn)
                 return VMI_SUCCESS;
 
-            store->event->reg_event.value = req.gfn;
-            store->event->vcpu_id = req.vcpu_id;
+            event->reg_event.value = req.gfn;
+            event->vcpu_id = req.vcpu_id;
 
             /* TODO MARESCA: note that vmi_event_t lacks a flags member
              *   so we have no req.flags equivalent. might need to add
              *   e.g !!(req.flags & MEM_EVENT_FLAG_VCPU_PAUSED)  would be nice
              */
-            store->callback(vmi, store->event);
+            event->cb(vmi, event);
+
             return VMI_SUCCESS;
     }
+
     return VMI_FAILURE;
 }
 
 status_t process_mem(vmi_instance_t vmi, mem_event_request_t req)
 {
-    event_iter_t i;
-    vmi_event_t event, *eptr;
-    event_callback_t callback;
     addr_t page;
     uint64_t npages;
 
@@ -264,26 +264,27 @@ status_t process_mem(vmi_instance_t vmi, mem_event_request_t req)
     xc_domain_hvm_getcontext_partial(xch, dom,
          HVM_SAVE_CODE(CPU), req.vcpu_id, &ctx, sizeof(ctx));
 
-    struct event_handler_storage *store=(struct event_handler_storage *)g_hash_table_lookup(vmi->mem_event_handlers, &req.gfn);
-    if(store && store->event) {
-                store->event->mem_event.gla = req.gla;
-                store->event->mem_event.gfn = req.gfn;
-                store->event->mem_event.offset = req.offset;
-                store->event->vcpu_id = req.vcpu_id;
+    vmi_event_t * event = g_hash_table_lookup(vmi->mem_events, &req.gfn);
 
-                if(req.access_r) store->event->mem_event.out_access = VMI_MEM_R;
-                else if(req.access_w) store->event->mem_event.out_access = VMI_MEM_W;
-                else if(req.access_x) store->event->mem_event.out_access = VMI_MEM_X;
+    if(event) {
+        event->mem_event.gla = req.gla;
+        event->mem_event.gfn = req.gfn;
+        event->mem_event.offset = req.offset;
+        event->vcpu_id = req.vcpu_id;
 
-                /* TODO MARESCA: decide whether it's worthwhile to emulate xen-access here and call the following
-                 *    note: the 'access' variable is basically discarded in that spot. perhaps it's really only called
-                 *    to validate that the event is accessible (maybe that it's not consumed elsewhere??)
-                 * hvmmem_access_t access;
-                 * rc = xc_hvm_get_mem_access(xch, domain_id, event.mem_event.gfn, &access);
-                 */
-                store->callback(vmi, store->event);
+        if(req.access_r) event->mem_event.out_access = VMI_MEM_R;
+        else if(req.access_w) event->mem_event.out_access = VMI_MEM_W;
+        else if(req.access_x) event->mem_event.out_access = VMI_MEM_X;
 
-                return VMI_SUCCESS;
+        /* TODO MARESCA: decide whether it's worthwhile to emulate xen-access here and call the following
+         *    note: the 'access' variable is basically discarded in that spot. perhaps it's really only called
+         *    to validate that the event is accessible (maybe that it's not consumed elsewhere??)
+         * hvmmem_access_t access;
+         * rc = xc_hvm_get_mem_access(xch, domain_id, event.mem_event.gfn, &access);
+         */
+        event->cb(vmi, event);
+
+        return VMI_SUCCESS;
     }
     return VMI_FAILURE;
 }
