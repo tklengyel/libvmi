@@ -1407,7 +1407,10 @@ typedef struct {
     vmi_mem_access_t out_access;
 } mem_event_t;
 
-typedef struct vmi_event {
+struct vmi_event;
+typedef struct vmi_event vmi_event_t;
+typedef void (*event_callback_t)(vmi_instance_t vmi, vmi_event_t *event);
+struct vmi_event {
     vmi_event_type_t type;
     union {
         reg_event_t reg_event;
@@ -1415,9 +1418,9 @@ typedef struct vmi_event {
     };
     unsigned long vcpu_id;
     void * data;  // Maybe allow some arbitrary data to follow the event?
-} vmi_event_t;
+    event_callback_t cb;
+};
 
-typedef void (*event_callback_t)(vmi_instance_t vmi, vmi_event_t *event);
 
 /**
  * Register to handle the event specified by the vmi_event object.
