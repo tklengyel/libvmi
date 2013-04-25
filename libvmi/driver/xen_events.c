@@ -316,6 +316,18 @@ void xen_events_destroy(vmi_instance_t vmi)
     if ( xe == NULL )
         return;
 
+    /* Unregister for all events */
+    rc = xc_hvm_set_mem_access(xch, dom, HVMMEM_access_rwx, ~0ull, 0);
+    rc = xc_hvm_set_mem_access(xch, dom, HVMMEM_access_rwx, 0, xe->mem_event.max_pages);
+    rc = xc_set_hvm_param(xch, dom, HVM_PARAM_MEMORY_EVENT_INT3, HVMPME_mode_disabled);
+    rc = xc_set_hvm_param(xch, dom, HVM_PARAM_MEMORY_EVENT_CR0, HVMPME_mode_disabled);
+    rc = xc_set_hvm_param(xch, dom, HVM_PARAM_MEMORY_EVENT_CR3, HVMPME_mode_disabled);
+    rc = xc_set_hvm_param(xch, dom, HVM_PARAM_MEMORY_EVENT_CR4, HVMPME_mode_disabled);
+#ifdef HVM_PARAM_MEMORY_EVENT_MSR
+    rc = xc_set_hvm_param(xch, dom, HVM_PARAM_MEMORY_EVENT_MSR, HVMPME_mode_disabled);
+#endif
+    rc = xc_set_hvm_param(xch, dom, HVM_PARAM_MEMORY_EVENT_SINGLE_STEP, HVMPME_mode_disabled);
+
     // Turn off mem events
 #ifdef XENEVENT42
     rc = xc_mem_access_disable(xch, dom);
