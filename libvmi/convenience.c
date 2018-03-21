@@ -134,6 +134,9 @@ vmi_convert_str_encoding(
     size_t inlen = in->length;
     size_t outlen = 2 * (inlen + 1);
 
+	if (!in || !out)
+		return VMI_FAILURE;
+	
     char *incurr = (char*)in->contents;
 
     memset(out, 0, sizeof(*out));
@@ -201,12 +204,17 @@ fail:
     return VMI_FAILURE;
 }
 
-void
+status_t
 vmi_free_unicode_str(
     unicode_string_t *p_us)
 {
+	if (!p_us)
+		return VMI_FAILURE;
+	
     if (p_us->contents)
         free(p_us->contents);
     memset((void *) p_us, 0, sizeof(*p_us));
     free(p_us);
+
+	return VMI_SUCCESS;
 }
