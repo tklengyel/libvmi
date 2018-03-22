@@ -1319,8 +1319,9 @@ status_t vmi_convert_str_encoding(
  * Convenience function to free a unicode_string_t struct.
  *
  * @param[in] p_us Pointer to a unicode_string_t struct
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_free_unicode_str(
+status_t vmi_free_unicode_str(
     unicode_string_t *p_us);
 
 /**
@@ -2110,8 +2111,9 @@ status_t vmi_resume_vm(
  *
  * @param[in] vmi LibVMI instance
  * @param[in] dtb The process address space to flush, or ~0ull for all.
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_v2pcache_flush(
+status_t vmi_v2pcache_flush(
     vmi_instance_t vmi,
     addr_t dtb);
 
@@ -2123,8 +2125,9 @@ void vmi_v2pcache_flush(
  * @param[in] va Virtual address
  * @param[in] dtb Directory table base for va
  * @param[in] pa Physical address
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_v2pcache_add(
+status_t vmi_v2pcache_add(
     vmi_instance_t vmi,
     addr_t va,
     addr_t dtb,
@@ -2136,8 +2139,9 @@ void vmi_v2pcache_add(
  * the cache is incorrect, or out of date.
  *
  * @param[in] vmi LibVMI instance
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_symcache_flush(
+status_t vmi_symcache_flush(
     vmi_instance_t vmi);
 
 /**
@@ -2149,8 +2153,9 @@ void vmi_symcache_flush(
  * @param[in] pid PID
  * @param[in] sym Symbol
  * @param[in] va Virtual address
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_symcache_add(
+status_t vmi_symcache_add(
     vmi_instance_t vmi,
     addr_t base_addr,
     vmi_pid_t pid,
@@ -2163,8 +2168,9 @@ void vmi_symcache_add(
  * the cache is incorrect, or out of date.
  *
  * @param[in] vmi LibVMI instance
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_rvacache_flush(
+status_t vmi_rvacache_flush(
     vmi_instance_t vmi);
 
 /**
@@ -2176,8 +2182,9 @@ void vmi_rvacache_flush(
  * @param[in] pid PID
  * @param[in] rva Relative virtual address
  * @param[in] sym Symbol
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_rvacache_add(
+status_t vmi_rvacache_add(
     vmi_instance_t vmi,
     addr_t base_addr,
     vmi_pid_t pid,
@@ -2190,8 +2197,9 @@ void vmi_rvacache_add(
  * the cache is incorrect, or out of date.
  *
  * @param[in] vmi LibVMI instance
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_pidcache_flush(
+status_t vmi_pidcache_flush(
     vmi_instance_t vmi);
 
 /**
@@ -2201,8 +2209,9 @@ void vmi_pidcache_flush(
  * @param[in] vmi LibVMI instance
  * @param[in] pid Process id
  * @param[in] dtb Directory table base
+ * @return VMI_SUCCESS or VMI_FAILURE
  */
-void vmi_pidcache_add(
+status_t vmi_pidcache_add(
     vmi_instance_t vmi,
     vmi_pid_t pid,
     addr_t dtb);

@@ -688,11 +688,17 @@ status_t swap_events(vmi_instance_t vmi, vmi_event_t *swap_from, vmi_event_t *sw
 
 vmi_event_t *vmi_get_reg_event(vmi_instance_t vmi, reg_t reg)
 {
+	if (!vmi)
+		return NULL;
+	
     return g_hash_table_lookup(vmi->reg_events, &reg);
 }
 
 vmi_event_t *vmi_get_mem_event(vmi_instance_t vmi, addr_t gfn, vmi_mem_access_t access)
 {
+	if (!vmi)
+		return NULL;
+	
     vmi_event_t *ret = g_hash_table_lookup(vmi->mem_events_generic, &access);
     if ( ret )
         return ret;
@@ -703,6 +709,9 @@ vmi_event_t *vmi_get_mem_event(vmi_instance_t vmi, addr_t gfn, vmi_mem_access_t 
 status_t vmi_set_mem_event(vmi_instance_t vmi, addr_t gfn,
                            vmi_mem_access_t access, uint16_t slat_id)
 {
+	if (!vmi)
+		return VMI_FAILURE;
+	
     if ( gfn > (vmi->max_physical_address >> vmi->page_shift) )
     {
         errprint("Invalid GFN for setting memory event: 0x%lx, beyond max physical address\n",
@@ -734,9 +743,16 @@ status_t vmi_set_mem_event(vmi_instance_t vmi, addr_t gfn,
     return driver_set_mem_access(vmi, gfn, access, slat_id);
 }
 
-status_t vmi_swap_events(vmi_instance_t vmi, vmi_event_t* swap_from, vmi_event_t *swap_to,
-                         vmi_event_free_t free_routine)
+status_t 
+vmi_swap_events(
+	vmi_instance_t vmi, 
+	vmi_event_t* swap_from, 
+	vmi_event_t *swap_to,
+	vmi_event_free_t free_routine)
 {
+	if (!vmi || !swap_from || !swap_to)
+		return VMI_FAILURE;
+	
     if(swap_from->type == swap_to->type && swap_from->type == VMI_EVENT_MEMORY)
     {
         if(!g_hash_table_lookup(vmi->mem_events_on_gfn, &swap_from->mem_event.gfn)) {
@@ -783,6 +799,10 @@ status_t vmi_register_event(vmi_instance_t vmi, vmi_event_t* event)
 {
     status_t rc = VMI_FAILURE;
 
+	if (!vmi)
+	{
+		return VMI_FAILURE;
+	}
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
     {
         dbprint(VMI_DEBUG_EVENTS, "LibVMI wasn't initialized with events!\n");
@@ -858,10 +878,11 @@ status_t vmi_clear_event(vmi_instance_t vmi, vmi_event_t* event,
 {
     status_t rc = VMI_FAILURE;
 
+	if (!vmi)
+		return VMI_FAILURE;
+
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
-    {
         return VMI_FAILURE;
-    }
 
     /*
      * We can't clear events when in an event callback rigt away
@@ -892,6 +913,9 @@ status_t vmi_clear_event(vmi_instance_t vmi, vmi_event_t* event,
         dbprint(VMI_DEBUG_EVENTS, "Event was already queued for clearing.\n");
         return VMI_FAILURE;
     }
+
+	if (!event)
+		return VMI_FAILURE;
 
     switch (event->type)
     {
@@ -933,6 +957,10 @@ status_t vmi_step_event(vmi_instance_t vmi, vmi_event_t *event,
     status_t rc = VMI_FAILURE;
     bool need_new_ss = 1;
 
+	if (!vmi)
+	{
+		return VMI_FAILURE;
+	}
     if (vcpu_id > vmi->num_vcpus)
     {
         dbprint(VMI_DEBUG_EVENTS, "The vCPU ID specified does not exist!\n");
@@ -988,11 +1016,11 @@ done:
 
 int vmi_are_events_pending(vmi_instance_t vmi)
 {
+	if (!vmi)
+		return -1;
 
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
-    {
         return -1;
-    }
 
     return driver_are_events_pending(vmi);
 
@@ -1001,39 +1029,42 @@ int vmi_are_events_pending(vmi_instance_t vmi)
 
 status_t vmi_events_listen(vmi_instance_t vmi, uint32_t timeout)
 {
+	if (!vmi)
+		return VMI_FAILURE;
 
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
-    {
         return VMI_FAILURE;
-    }
 
     return driver_events_listen(vmi, timeout);
 }
 
 status_t vmi_event_listener_required(vmi_instance_t vmi, bool required)
 {
+	if (!vmi)
+		return VMI_FAILURE;
 
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
-    {
         return VMI_FAILURE;
-    }
 
     return driver_set_access_listener_required(vmi, required);
 }
 
 vmi_event_t *vmi_get_singlestep_event(vmi_instance_t vmi, uint32_t vcpu)
 {
+	if (!vmi)
+		return NULL;
+
     return g_hash_table_lookup(vmi->ss_events, &vcpu);
 }
 
 status_t vmi_stop_single_step_vcpu(vmi_instance_t vmi, vmi_event_t* event,
     uint32_t vcpu)
 {
+	if (!vmi || !event)
+		return VMI_FAILURE;
 
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
-    {
         return VMI_FAILURE;
-    }
 
     UNSET_VCPU_SINGLESTEP(event->ss_event, vcpu);
     g_hash_table_remove(vmi->ss_events, &vcpu);
@@ -1043,11 +1074,11 @@ status_t vmi_stop_single_step_vcpu(vmi_instance_t vmi, vmi_event_t* event,
 
 status_t vmi_shutdown_single_step(vmi_instance_t vmi)
 {
+	if (!vmi)
+		return VMI_FAILURE;
 
     if (!(vmi->init_flags & VMI_INIT_EVENTS))
-    {
         return VMI_FAILURE;
-    }
 
     if(VMI_SUCCESS == driver_shutdown_single_step(vmi))
     {
