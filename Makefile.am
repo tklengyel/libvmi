@@ -209,6 +209,8 @@ endif
     examples_map_symbol_SOURCES = examples/map-symbol.c
     examples_map_addr_SOURCES = examples/map-addr.c
     examples_event_example_SOURCES = examples/event-example.c
+    examples_event_example_CFLAGS = $(GLIB_CFLAGS)
+    examples_event_example_LDADD = $(GLIB_LIBS) libvmi/libvmi.la
     examples_msr_event_example_SOURCES = examples/msr-event-example.c
     examples_singlestep_event_example_SOURCES = examples/singlestep-event-example.c
     examples_interrupt_event_example_SOURCES = examples/interrupt-event-example.c

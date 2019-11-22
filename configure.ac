@@ -212,6 +212,7 @@ AC_SUBST([GLIB_LIBS])
 [then]
     AC_CHECK_HEADERS([xenctrl.h xen/io/ring.h], [],
         [AC_MSG_ERROR([Required Xen headers not found. Install missing package or re-run with --disable-xen])])
+    AC_CHECK_LIB(xenctrl, xc_interface_open)
 
     AC_CHECK_TYPE(
         [hvmmem_access_t],

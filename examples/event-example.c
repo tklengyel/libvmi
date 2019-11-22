@@ -36,6 +36,9 @@
 
 #include <libvmi/libvmi.h>
 #include <libvmi/events.h>
+#include <libvmi/slat.h>
+
+#include <xenctrl.h>
 
 #define PAGE_SIZE 1 << 12
 
@@ -48,6 +51,8 @@ vmi_event_t msr_syscall_sysenter_event;
 vmi_event_t kernel_vdso_event;
 vmi_event_t kernel_vsyscall_event;
 vmi_event_t kernel_sysenter_target_event;
+
+static unsigned long long count;
 
 void print_event(vmi_event_t event)
 {
@@ -146,10 +151,7 @@ event_response_t syscall_lm_cb(vmi_instance_t vmi, vmi_event_t *event)
 
 event_response_t cr3_all_tasks_callback(vmi_instance_t vmi, vmi_event_t *event)
 {
-    vmi_pid_t pid = -1;
-    vmi_dtb_to_pid(vmi, event->reg_event.value, &pid);
-    printf("PID %i with CR3=%"PRIx64" executing on vcpu %"PRIu32". Previous CR3=%"PRIx64"\n",
-           pid, event->reg_event.value, event->vcpu_id, event->reg_event.previous);
+    count++;
     return 0;
 }
 
@@ -207,47 +209,6 @@ int main (int argc, char **argv)
 
     printf("LibVMI init succeeded!\n");
 
-    // Get the value of lstar and cstar for the system.
-    // NOTE: all vCPUs have the same value for these registers
-    vmi_get_vcpureg(vmi, &lstar, MSR_LSTAR, 0);
-    vmi_get_vcpureg(vmi, &cstar, MSR_CSTAR, 0);
-    vmi_get_vcpureg(vmi, &sysenter_ip, SYSENTER_EIP, 0);
-    printf("vcpu 0 MSR_LSTAR == %llx\n", (unsigned long long)lstar);
-    printf("vcpu 0 MSR_CSTAR == %llx\n", (unsigned long long)cstar);
-    printf("vcpu 0 MSR_SYSENTER_IP == %llx\n", (unsigned long long)sysenter_ip);
-
-    vmi_translate_ksym2v(vmi, "ia32_sysenter_target", &ia32_sysenter_target);
-    printf("ksym ia32_sysenter_target == %llx\n", (unsigned long long)ia32_sysenter_target);
-
-    /* Per Linux ABI, this VA represents the start of the vsyscall page
-     *  If vsyscall support is enabled (deprecated or disabled on many newer
-     *  3.0+ kernels), it is accessible at this address in every process.
-     */
-    vsyscall = 0xffffffffff600000;
-
-    // Translate to a physical address.
-    vmi_translate_kv2p(vmi, lstar, &phys_lstar);
-    printf("Physical LSTAR == %llx\n", (unsigned long long)phys_lstar);
-
-    vmi_translate_kv2p(vmi, cstar, &phys_cstar);
-    printf("Physical CSTAR == %llx\n", (unsigned long long)phys_cstar);
-
-    vmi_translate_kv2p(vmi, sysenter_ip, &phys_sysenter_ip);
-    printf("Physical SYSENTER_IP == %llx\n", (unsigned long long)phys_sysenter_ip);
-
-    vmi_translate_kv2p(vmi,ia32_sysenter_target, &phys_ia32_sysenter_target);
-    printf("Physical ia32_sysenter_target == %llx\n", (unsigned long long)ia32_sysenter_target);
-    vmi_translate_kv2p(vmi,vsyscall,&phys_vsyscall);
-    printf("Physical phys_vsyscall == %llx\n", (unsigned long long)phys_vsyscall);
-
-
-    // Get only the page that the handler starts.
-    printf("LSTAR Physical PFN == %llx\n", (unsigned long long)(phys_lstar >> 12));
-    printf("CSTAR Physical PFN == %llx\n", (unsigned long long)(phys_cstar >> 12));
-    printf("SYSENTER_IP Physical PFN == %llx\n", (unsigned long long)(phys_sysenter_ip >> 12));
-    printf("phys_vsyscall Physical PFN == %llx\n", (unsigned long long)(phys_vsyscall >> 12));
-    printf("phys_ia32_sysenter_target Physical PFN == %llx\n", (unsigned long long)(phys_ia32_sysenter_target >> 12));
-
     /* Configure an event to track when the process is running.
      * (The CR3 register is updated on task context switch, allowing
      *  us to follow as various tasks are scheduled and run upon the CPU)
@@ -264,7 +225,7 @@ int main (int argc, char **argv)
     cr3_event.reg_event.in_access = VMI_REGACCESS_W;
 
     // Setup a default event for tracking memory at the syscall handler.
-    memset(&msr_syscall_sysenter_event, 0, sizeof(vmi_event_t));
+    /*memset(&msr_syscall_sysenter_event, 0, sizeof(vmi_event_t));
     msr_syscall_sysenter_event.version = VMI_EVENTS_VERSION;
     msr_syscall_sysenter_event.type = VMI_EVENT_MEMORY;
     msr_syscall_sysenter_event.mem_event.gfn = phys_sysenter_ip >> 12;
@@ -290,21 +251,56 @@ int main (int argc, char **argv)
     kernel_vsyscall_event.type = VMI_EVENT_MEMORY;
     kernel_vsyscall_event.mem_event.gfn = phys_vsyscall >> 12;
     kernel_vsyscall_event.mem_event.in_access = VMI_MEMACCESS_X;
-    kernel_vsyscall_event.callback=vsyscall_cb;
+    kernel_vsyscall_event.callback=vsyscall_cb;*/
+
+    addr_t test, test_pa;
+    vmi_translate_ksym2v(vmi, "KeBugCheck2", &test);
+    vmi_translate_kv2p(vmi, test, &test_pa);
+
+    printf("Bugcheck @ 0x%lx -> 0x%lx\n", test, test_pa);
 
     if ( VMI_FAILURE == vmi_register_event(vmi, &cr3_event) )
         printf("Failed to register CR3 event\n");
-    if ( phys_sysenter_ip && VMI_FAILURE == vmi_register_event(vmi, &msr_syscall_sysenter_event) )
+    /*if ( phys_sysenter_ip && VMI_FAILURE == vmi_register_event(vmi, &msr_syscall_sysenter_event) )
         printf("Failed to register memory event on MSR_SYSENTER_IP page\n");
     if ( phys_lstar && VMI_FAILURE == vmi_register_event(vmi, &msr_syscall_lm_event) )
         printf("Failed to register memory event on MSR_LSTAR page\n");
     if ( phys_ia32_sysenter_target && VMI_FAILURE == vmi_register_event(vmi, &kernel_sysenter_target_event) )
         printf("Failed to register memory event on ia32_sysenter_target page\n");
     if ( phys_vsyscall && VMI_FAILURE == vmi_register_event(vmi, &kernel_vsyscall_event) )
-        printf("Failed to register memory event on vsyscall page\n");
+        printf("Failed to register memory event on vsyscall page\n");*/
+
+    vmi_pause_vm(vmi);
+
+    vmi_slat_set_domain_state(vmi, 1);
+    uint16_t altp2m_idx;
+    vmi_slat_create(vmi, &altp2m_idx);
+
+    uint8_t buffer[4096];
+    vmi_read_va(vmi, test, 0, 4096, &buffer, NULL);
+
+    xc_interface *xch = xc_interface_open(0,0,0);
+
+    xen_pfn_t max, new_gfn;
+
+    xc_domain_maximum_gpfn(xch, vmi_get_vmid(vmi), &max);
+
+    new_gfn = ++max;
+
+    xc_domain_populate_physmap_exact(xch, vmi_get_vmid(vmi), 1, 0, 0, &new_gfn);
+
+    printf("New: %lu 0x%lx\n", new_gfn, new_gfn<<12);
+    vmi_write_pa(vmi, new_gfn<<12, 4096, &buffer, NULL);
+
+    printf("Altp2m id: %u\n", altp2m_idx);
+
+    vmi_slat_change_gfn(vmi, altp2m_idx, test_pa>>12, new_gfn);
+
+    vmi_slat_switch(vmi, altp2m_idx);
+
+    vmi_resume_vm(vmi);
 
     while (!interrupted) {
-        printf("Waiting for events...\n");
         status = vmi_events_listen(vmi,500);
         if (status != VMI_SUCCESS) {
             printf("Error waiting for events, quitting...\n");
@@ -313,23 +309,25 @@ int main (int argc, char **argv)
     }
 
     vmi_pause_vm(vmi);
-
-    // Process any events that may have been left
-    if ( vmi_are_events_pending(vmi) > 0 )
-        vmi_events_listen(vmi, 0);
-
-    vmi_clear_event(vmi, &cr3_event, NULL);
-    vmi_clear_event(vmi, &msr_syscall_lm_event, NULL);
-    vmi_clear_event(vmi, &msr_syscall_sysenter_event, NULL);
-    vmi_clear_event(vmi, &kernel_sysenter_target_event, NULL);
-    vmi_clear_event(vmi, &kernel_vsyscall_event, NULL);
-
-    vmi_resume_vm(vmi);
+    //status = vmi_events_listen(vmi,0);
 
     printf("Finished with test.\n");
 
+    vmi_slat_switch(vmi, 0);
+    vmi_slat_destroy(vmi, altp2m_idx);
+    vmi_slat_set_domain_state(vmi, 0);
+
+    xc_domain_decrease_reservation_exact(xch, vmi_get_vmid(vmi), 1, 0, &new_gfn);
+    //vmi_clear_event(vmi, &cr3_event, NULL);
+
+    vmi_resume_vm(vmi);
+
     // cleanup any memory associated with the libvmi instance
     vmi_destroy(vmi);
+
+    xc_interface_close(xch);
+
+    printf("%lu\n", count);
 
     return 0;
 }
