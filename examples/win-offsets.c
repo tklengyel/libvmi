@@ -22,8 +22,14 @@
 
 #define _GNU_SOURCE
 
+#define LIBVMI_EXTRA_JSON
+
 #include <libvmi/libvmi.h>
 #include <libvmi/peparse.h>
+#include <libvmi/events.h>
+#include <libvmi/libvmi_extra.h>
+#include <json-c/json.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -33,16 +39,21 @@
 #include <inttypes.h>
 #include <glib.h>
 #include <signal.h>
+#include <unistd.h>
 
 vmi_instance_t vmi;
-GHashTable* config;
+vmi_event_t cr3_event;
+
+int borks = 0;
 
 void clean_up(void)
 {
-    vmi_resume_vm(vmi);
+    //if ( borks == 1 )
+        vmi_resume_vm(vmi);
+//    vmi_resume_vm(vmi);
     vmi_destroy(vmi);
-    if (config)
-        g_hash_table_destroy(config);
+    printf("Done. Sleep for a minute\n");
+    sleep(60);
 }
 
 void sigint_handler()
@@ -51,39 +62,58 @@ void sigint_handler()
     exit(1);
 }
 
+event_response_t cr3_cb(vmi_instance_t vmi, vmi_event_t *event)
+{
+    printf("borks %d: %lu\n", event->vcpu_id, event->reg_event.value);
+    //if ( !borks )
+    {
+        vmi_pause_vm(vmi);
+        //vmi_clear_event(vmi, event, NULL);
+    }
+    borks++;
+    return VMI_EVENT_RESPONSE_NONE;
+}
+
+void show_usage(char *arg0)
+{
+    printf("Usage: %s name|domid <domain name|domain id>\n", arg0);
+}
+
 int main(int argc, char **argv)
 {
     vmi_mode_t mode;
     int rc = 1;
 
-    /* this is the VM that we are looking at */
-    if (argc != 5) {
-        printf("Usage: %s name|domid <domain name|domain id> -r <rekall profile>\n", argv[0]);
-        return 1;
-    }   // if
-
     void *domain;
     uint64_t domid = VMI_INVALID_DOMID;
     uint64_t init_flags = 0;
 
-    if (strcmp(argv[1],"name")==0) {
-        domain = (void*)argv[2];
+    char *rekall_profile = NULL;
+    char c;
+
+    while ((c = getopt (argc, argv, "")) != -1)
+      switch (c) {
+    default:
+      printf("xxx\n");
+      show_usage(argv[0]);
+      return 1;
+      }
+
+    if (argc - optind != 2) {
+        show_usage(argv[0]);
+    return 1;
+    }
+
+    if (strcmp(argv[optind],"name")==0) {
+        domain = (void*)argv[optind+1];
         init_flags |= VMI_INIT_DOMAINNAME;
-    } else if (strcmp(argv[1],"domid")==0) {
-        domid = strtoull(argv[2], NULL, 0);
+    } else if (strcmp(argv[optind],"domid")==0) {
+        domid = strtoull(argv[optind+1], NULL, 0);
         domain = (void*)&domid;
         init_flags |= VMI_INIT_DOMAINID;
     } else {
         printf("You have to specify either name or domid!\n");
-        return 1;
-    }
-
-    char *rekall_profile = NULL;
-
-    if (strcmp(argv[3], "-r") == 0) {
-        rekall_profile = argv[4];
-    } else {
-        printf("You have to specify path to rekall profile!\n");
+    show_usage(argv[0]);
         return 1;
     }
 
@@ -91,117 +121,45 @@ int main(int argc, char **argv)
         return 1;
 
     /* initialize the libvmi library */
-    if (VMI_FAILURE == vmi_init(&vmi, mode, domain, init_flags, NULL, NULL)) {
+    if (VMI_FAILURE == vmi_init(&vmi, mode, domain, init_flags | VMI_INIT_EVENTS, NULL, NULL)) {
         printf("Failed to init LibVMI library.\n");
         return 1;
     }
 
-    /* pause the vm for consistent memory access */
-    if (vmi_pause_vm(vmi) != VMI_SUCCESS) {
-        printf("Failed to pause VM\n");
-        goto done;
-    } // if
-
     signal(SIGINT, sigint_handler);
 
-    config = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-    if (!config) {
-        printf("Failed to create GHashTable!\n");
+    memset(&cr3_event, 0, sizeof(vmi_event_t));
+    cr3_event.version = VMI_EVENTS_VERSION;
+    cr3_event.type = VMI_EVENT_REGISTER;
+    cr3_event.reg_event.reg = CR3;
+    cr3_event.reg_event.in_access = VMI_REGACCESS_W;
+    cr3_event.callback = cr3_cb;
+
+    if (VMI_FAILURE == vmi_register_event(vmi, &cr3_event)) {
+        printf("Failed to register CR3 write event\n");
         goto done;
     }
 
-    g_hash_table_insert(config, g_strdup("os_type"), g_strdup("Windows"));
-    g_hash_table_insert(config, g_strdup("rekall_profile"), g_strdup(rekall_profile));
-
-    if (VMI_PM_UNKNOWN == vmi_init_paging(vmi, VMI_PM_INITFLAG_TRANSITION_PAGES) ) {
-        printf("Failed to init LibVMI paging.\n");
-        goto done;
+    while (borks != 2) {
+        vmi_resume_vm(vmi);
+        borks = 0;
+        if (VMI_FAILURE == vmi_events_listen(vmi, 500)) {
+            printf("Failed to listen to VMI events\n");
+            goto done;
+        }
     }
 
-    os_t os = vmi_init_os(vmi, VMI_CONFIG_GHASHTABLE, config, NULL);
-    if (VMI_OS_WINDOWS != os) {
-        printf("Failed to init LibVMI library.\n");
-        goto done;
-    }
+    if ( vmi_are_events_pending(vmi) > 0 )
+        vmi_events_listen(vmi, 0);
 
-    /* Get internal fields */
-    addr_t ntoskrnl = 0;
-    addr_t ntoskrnl_va = 0;
-    addr_t tasks = 0;
-    addr_t pdbase = 0;
-    addr_t pid = 0;
-    addr_t pname = 0;
-    addr_t kdvb = 0;
-    addr_t sysproc = 0;
-    addr_t kpcr = 0;
-    addr_t kdbg = 0;
-    addr_t kpgd = 0;
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_ntoskrnl", &ntoskrnl))
-        printf("Failed to read field \"ntoskrnl\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_ntoskrnl_va", &ntoskrnl_va))
-        printf("Failed to read field \"ntoskrnl_va\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_tasks", &tasks))
-        printf("Failed to read field \"tasks\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_pdbase", &pdbase))
-        printf("Failed to read field \"pdbase\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_pid", &pid))
-        printf("Failed to read field \"pid\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_pname", &pname))
-        printf("Failed to read field \"pname\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_kdvb", &kdvb))
-        printf("Failed to read field \"kdvb\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_sysproc", &sysproc))
-        printf("Failed to read field \"sysproc\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_kpcr", &kpcr))
-        printf("Failed to read field \"kpcr\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "win_kdbg", &kdbg))
-        printf("Failed to read field \"kdbg\"\n");
-
-    if (VMI_FAILURE == vmi_get_offset(vmi, "kpgd", &kpgd))
-        printf("Failed to read field \"kpgd\"\n");
-
-    printf("win_ntoskrnl:0x%lx\n"
-           "win_ntoskrnl_va:0x%lx\n"
-           "win_tasks:0x%lx\n"
-           "win_pdbase:0x%lx\n"
-           "win_pid:0x%lx\n"
-           "win_pname:0x%lx\n"
-           "win_kdvb:0x%lx\n"
-           "win_sysproc:0x%lx\n"
-           "win_kpcr:0x%lx\n"
-           "win_kdbg:0x%lx\n"
-           "kpgd:0x%lx\n",
-           ntoskrnl,
-           ntoskrnl_va,
-           tasks,
-           pdbase,
-           pid,
-           pname,
-           kdvb,
-           sysproc,
-           kpcr,
-           kdbg,
-           kpgd);
-
-    if (!ntoskrnl || !ntoskrnl_va || !sysproc || !pdbase || !kpgd) {
-        printf("Failed to get most essential fields\n");
-        goto done;
-    }
+    vmi_clear_event(vmi, &cr3_event, NULL);
 
     rc = 0;
 
     /* cleanup any memory associated with the LibVMI instance */
 done:
+    //sleep(2);
     clean_up();
     return rc;
 }
+
