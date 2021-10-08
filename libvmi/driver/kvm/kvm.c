@@ -77,9 +77,9 @@ reply_continue(kvm_instance_t *kvm, struct kvmi_dom_event *ev)
         struct kvmi_event_reply common;
     } rpl = {0};
 
-    rpl.hdr.vcpu = ev->event.common.vcpu;
+    rpl.hdr.vcpu = ev->event.common.ev.vcpu;
     rpl.common.action = KVMI_EVENT_ACTION_CONTINUE;
-    rpl.common.event = ev->event.common.event;
+    rpl.common.event = ev->event.common.hdr.event;
 
     if (kvm->libkvmi.kvmi_reply_event(dom, ev->seq, &rpl, sizeof(rpl)))
         return VMI_FAILURE;
@@ -412,19 +412,19 @@ init_kvmi(
     }
 
     // query and display supported features
-    struct kvmi_features features = {0};
-    kvm->libkvmi.kvmi_spp_support(kvm->kvmi_dom, (bool*)&features.spp);
-    kvm->libkvmi.kvmi_vmfunc_support(kvm->kvmi_dom, (bool*)&features.vmfunc);
-    kvm->libkvmi.kvmi_eptp_support(kvm->kvmi_dom, (bool*)&features.eptp);
-    kvm->libkvmi.kvmi_ve_support(kvm->kvmi_dom, (bool*)&features.ve);
+    bool spp, vmfunc, eptp, ve;
+    kvm->libkvmi.kvmi_spp_support(kvm->kvmi_dom, &spp);
+    kvm->libkvmi.kvmi_vmfunc_support(kvm->kvmi_dom, &vmfunc);
+    kvm->libkvmi.kvmi_eptp_support(kvm->kvmi_dom, &eptp);
+    kvm->libkvmi.kvmi_ve_support(kvm->kvmi_dom, &ve);
 
     dbprint(VMI_DEBUG_KVM, "--KVMi features:\n");
     // available in 2013 on Intel Haswell
-    dbprint(VMI_DEBUG_KVM, "--    VMFUNC: %s\n", features.vmfunc ? "Yes" : "No");
-    dbprint(VMI_DEBUG_KVM, "--    EPTP: %s\n", features.eptp ? "Yes" : "No");
-    dbprint(VMI_DEBUG_KVM, "--    VE: %s\n", features.ve ? "Yes" : "No");
+    dbprint(VMI_DEBUG_KVM, "--    VMFUNC: %s\n", vmfunc ? "Yes" : "No");
+    dbprint(VMI_DEBUG_KVM, "--    EPTP: %s\n", eptp ? "Yes" : "No");
+    dbprint(VMI_DEBUG_KVM, "--    VE: %s\n", ve ? "Yes" : "No");
     // available in 2019 on Intel Ice Lake
-    dbprint(VMI_DEBUG_KVM, "--    SPP: %s\n", features.spp ? "Yes" : "No");
+    dbprint(VMI_DEBUG_KVM, "--    SPP: %s\n", spp ? "Yes" : "No");
 
     return true;
 }
@@ -1057,7 +1057,7 @@ kvm_resume_vm(
             }
         }
         // handle event
-        ev_id = ev->event.common.event;
+        ev_id = ev->event.common.hdr.event;
         switch (ev_id) {
             case KVMI_EVENT_PAUSE_VCPU:
                 dbprint(VMI_DEBUG_KVM, "--Received VCPU pause event\n");
