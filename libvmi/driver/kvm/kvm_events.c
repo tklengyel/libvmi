@@ -129,6 +129,9 @@ process_cb_response_emulate(
             switch (candidate) {
                 case VMI_EVENT_RESPONSE_SET_EMUL_READ_DATA:
                     if (libvmi_event->emul_read) {
+#if 1 // kvmi-v12
+                        status = VMI_FAILURE;
+#else
                         if (libvmi_event->emul_read->size > sizeof(rpl->pf.ctx_data)) {
                             errprint("%s: requested emulation buffer size too big (max: %ld)\n", __func__, sizeof(rpl->pf.ctx_data));
                             status = VMI_FAILURE;
@@ -141,6 +144,7 @@ process_cb_response_emulate(
                             // copy libvmi buffer into kvm reply event
                             memcpy(rpl->pf.ctx_data, libvmi_event->emul_read->data, libvmi_event->emul_read->size);
                         }
+#endif
                         // free ?
                         if (!libvmi_event->emul_read->dont_free) {
                             free(libvmi_event->emul_read);
