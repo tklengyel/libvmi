@@ -713,11 +713,11 @@ process_cpuid(vmi_instance_t vmi, struct kvmi_dom_event *kvmi_event)
     // fill libvmi_event struct
     x86_registers_t regs = {0};
     libvmi_event->x86_regs = &regs;
-    struct kvm_regs *kvmi_regs = &kvmi_event->event.common.arch.regs;
-    struct kvm_sregs *kvmi_sregs = &kvmi_event->event.common.arch.sregs;
+    struct kvm_regs *kvmi_regs = &kvmi_event->event.common.ev.arch.regs;
+    struct kvm_sregs *kvmi_sregs = &kvmi_event->event.common.ev.arch.sregs;
     kvmi_regs_to_libvmi(kvmi_regs, kvmi_sregs, libvmi_event->x86_regs);
 
-    libvmi_event->vcpu_id = kvmi_event->event.common.vcpu;
+    libvmi_event->vcpu_id = kvmi_event->event.common.ev.vcpu;
     libvmi_event->cpuid_event.leaf = kvmi_event->event.cpuid.function;
     libvmi_event->cpuid_event.subleaf = kvmi_event->event.cpuid.index;
 
@@ -731,8 +731,8 @@ process_cpuid(vmi_instance_t vmi, struct kvmi_dom_event *kvmi_event)
     } rpl = {0};
 
     // set reply action
-    rpl.hdr.vcpu = kvmi_event->event.common.vcpu;
-    rpl.common.event = kvmi_event->event.common.event;
+    rpl.hdr.vcpu = kvmi_event->event.common.ev.vcpu;
+    rpl.common.event = kvmi_event->event.common.hdr.event;
     rpl.common.action = KVMI_EVENT_ACTION_CONTINUE;
 
     return process_cb_response(vmi, response, libvmi_event, kvmi_event, &rpl, sizeof(rpl));
