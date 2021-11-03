@@ -176,57 +176,28 @@ kvmi_regs_to_libvmi(
 }
 
 void *
-kvm_get_memory_patch(
-    vmi_instance_t vmi,
-    addr_t paddr,
-    uint32_t length)
+kvm_get_memory(vmi_instance_t vmi, addr_t paddr, uint32_t length)
 {
     kvm_instance_t *kvm = kvm_get_instance(vmi);
 
     if (!kvm->kvmi_dom)
         return NULL;
 
-    char* buffer = g_try_malloc0(length);
-    if (!buffer)
-        return NULL;
-
-    if (kvm->libkvmi.kvmi_read_physical(kvm->kvmi_dom, paddr, buffer, length) < 0) {
-        g_free(buffer);
-        return NULL;
-    }
-
-    return buffer;
-}
-
-void *
-kvm_get_memory_kvmi(vmi_instance_t vmi, addr_t paddr, uint32_t length)
-{
-    kvm_instance_t *kvm = kvm_get_instance(vmi);
-    void *buffer;
-
-    if (!kvm->kvmi_dom)
-        return NULL;
-
-    buffer = g_try_malloc0(length);
-    if (!buffer)
-        return NULL;
-
-    if (kvm->libkvmi.kvmi_read_physical(kvm->kvmi_dom, paddr, buffer, length) < 0) {
-        g_free(buffer);
-        return NULL;
-    }
-
-    return buffer;
+    return kvm->libkvmi.kvmi_map_physical_page(kvm->kvmi_dom, paddr);
 }
 
 void
 kvm_release_memory(
-    vmi_instance_t UNUSED(vmi),
+    vmi_instance_t vmi,
     void *memory,
     size_t UNUSED(length))
 {
-    if (memory)
-        free(memory);
+    kvm_instance_t *kvm = kvm_get_instance(vmi);
+
+    if (!kvm->kvmi_dom)
+        return;
+
+    (void)kvmi_unmap_physical_page(kvm->kvmi_dom, memory);
 }
 
 status_t
@@ -410,21 +381,6 @@ init_kvmi(
         kvm->libkvmi.kvmi_domain_close(kvm->kvmi_dom, true);
         return false;
     }
-
-    // query and display supported features
-    struct kvmi_features features = {0};
-    kvm->libkvmi.kvmi_spp_support(kvm->kvmi_dom, (bool*)&features.spp);
-    kvm->libkvmi.kvmi_vmfunc_support(kvm->kvmi_dom, (bool*)&features.vmfunc);
-    kvm->libkvmi.kvmi_eptp_support(kvm->kvmi_dom, (bool*)&features.eptp);
-    kvm->libkvmi.kvmi_ve_support(kvm->kvmi_dom, (bool*)&features.ve);
-
-    dbprint(VMI_DEBUG_KVM, "--KVMi features:\n");
-    // available in 2013 on Intel Haswell
-    dbprint(VMI_DEBUG_KVM, "--    VMFUNC: %s\n", features.vmfunc ? "Yes" : "No");
-    dbprint(VMI_DEBUG_KVM, "--    EPTP: %s\n", features.eptp ? "Yes" : "No");
-    dbprint(VMI_DEBUG_KVM, "--    VE: %s\n", features.ve ? "Yes" : "No");
-    // available in 2019 on Intel Ice Lake
-    dbprint(VMI_DEBUG_KVM, "--    SPP: %s\n", features.spp ? "Yes" : "No");
 
     return true;
 }

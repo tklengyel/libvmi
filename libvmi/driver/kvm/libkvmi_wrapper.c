@@ -37,12 +37,10 @@ static status_t sanity_check(kvm_instance_t *kvm)
             !w->kvmi_control_msr || !w->kvmi_pause_all_vcpus ||
             !w->kvmi_set_page_access || !w->kvmi_get_tsc_speed ||
             !w->kvmi_get_vcpu_count || !w->kvmi_inject_exception ||
-            !w->kvmi_read_physical || !w->kvmi_write_physical ||
             !w->kvmi_get_registers || !w->kvmi_set_registers ||
             !w->kvmi_reply_event || !w->kvmi_pop_event || !w->kvmi_wait_event ||
             !w->kvmi_set_log_cb || !w->kvmi_get_maximum_gfn ||
-            !w->kvmi_spp_support || !w->kvmi_ve_support ||
-            !w->kvmi_vmfunc_support || !w->kvmi_eptp_support || !w->kvmi_get_pending_events) {
+            !w->kvmi_get_pending_events || !w->kvmi_map_physical_page || !w->kvmi_unmap_physical_page) {
         dbprint(VMI_DEBUG_KVM, "--failed to find the required functions in libkvmi\n");
         return VMI_FAILURE;
     }
@@ -85,8 +83,6 @@ status_t create_libkvmi_wrapper(struct kvm_instance *kvm)
     wrapper->kvmi_get_tsc_speed = dlsym(wrapper->handle, "kvmi_get_tsc_speed");
     wrapper->kvmi_get_vcpu_count = dlsym(wrapper->handle, "kvmi_get_vcpu_count");
     wrapper->kvmi_inject_exception = dlsym(wrapper->handle, "kvmi_inject_exception");
-    wrapper->kvmi_read_physical = dlsym(wrapper->handle, "kvmi_read_physical");
-    wrapper->kvmi_write_physical = dlsym(wrapper->handle, "kvmi_write_physical");
     wrapper->kvmi_get_registers = dlsym(wrapper->handle, "kvmi_get_registers");
     wrapper->kvmi_set_registers = dlsym(wrapper->handle, "kvmi_set_registers");
     wrapper->kvmi_reply_event = dlsym(wrapper->handle, "kvmi_reply_event");
@@ -94,11 +90,10 @@ status_t create_libkvmi_wrapper(struct kvm_instance *kvm)
     wrapper->kvmi_wait_event = dlsym(wrapper->handle, "kvmi_wait_event");
     wrapper->kvmi_set_log_cb = dlsym(wrapper->handle, "kvmi_set_log_cb");
     wrapper->kvmi_get_maximum_gfn = dlsym(wrapper->handle, "kvmi_get_maximum_gfn");
-    wrapper->kvmi_spp_support = dlsym(wrapper->handle, "kvmi_spp_support");
-    wrapper->kvmi_ve_support = dlsym(wrapper->handle, "kvmi_ve_support");
-    wrapper->kvmi_vmfunc_support = dlsym(wrapper->handle, "kvmi_vmfunc_support");
     wrapper->kvmi_eptp_support = dlsym(wrapper->handle, "kvmi_eptp_support");
     wrapper->kvmi_get_pending_events = dlsym(wrapper->handle, "kvmi_get_pending_events");
+    wrapper->kvmi_map_physical_page = dlsym(wrapper->handle, "kvmi_map_physical_page");
+    wrapper->kvmi_unmap_physical_page = dlsym(wrapper->handle, "kvmi_unmap_physical_page");
 
     status_t ret = sanity_check(kvm);
     if ( ret != VMI_SUCCESS ) {

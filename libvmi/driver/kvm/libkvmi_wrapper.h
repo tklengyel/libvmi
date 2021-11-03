@@ -87,12 +87,6 @@ typedef struct {
     int (*kvmi_inject_exception)
     (void *dom, unsigned short vcpu, unsigned long long int gva, unsigned int error, unsigned char vector);
 
-    int (*kvmi_read_physical)
-    (void *dom, unsigned long long int gpa, void *buffer, size_t size);
-
-    int (*kvmi_write_physical)
-    (void *dom, unsigned long long int gpa, const void *buffer, size_t size);
-
     int (*kvmi_get_registers)
     (void *dom, unsigned short vcpu, struct kvm_regs *regs, struct kvm_sregs *sregs,
      struct kvm_msrs *msrs, unsigned int *mode);
@@ -115,21 +109,14 @@ typedef struct {
     int (*kvmi_get_maximum_gfn)
     (void *dom, unsigned long long *gfn);
 
-    // only on KVMi-v7
-    int (*kvmi_spp_support)
-    (void *dom, bool *supported);
-
-    int (*kvmi_ve_support)
-    (void *dom, bool *supported);
-
-    int (*kvmi_vmfunc_support)
-    (void *dom, bool *supported);
-
-    int (*kvmi_eptp_support)
-    (void *dom, bool *supported);
-
     size_t (*kvmi_get_pending_events)
     (void *dom);
+
+    void* (*kvmi_map_physical_page)
+    (void *dom, unsigned long long int gpa );
+
+    int (*kvmi_unmap_physical_page)
+    ( void *dom, void *addr );
 
 } libkvmi_wrapper_t;
 
