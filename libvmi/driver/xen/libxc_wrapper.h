@@ -69,6 +69,9 @@ typedef struct {
     (xc_interface *xch, uint32_t domid, uint16_t typecode,
      uint16_t instance, void *ctxt_buf, uint32_t size);
 
+    unsigned long (*xc_domain_hvm_getcontext_size)
+    (xc_interface *xch, uint32_t domid, uint16_t typecode, uint16_t instance);
+
     int (*xc_domain_getinfo)
     (xc_interface *xch, uint32_t first_domid, unsigned int max_doms, xc_dominfo_t *info);
 
@@ -259,6 +262,10 @@ typedef struct {
     /* Xen 4.13+ but may be backported */
     int (*xc_vm_event_get_version)
     (xc_interface *xch);
+
+    /* Xen 4.17+ */
+    int (*xc_monitor_vmexit)
+    (xc_interface *xch, uint32_t domain_id, bool enable, bool sync);
 
 } libxc_wrapper_t;
 

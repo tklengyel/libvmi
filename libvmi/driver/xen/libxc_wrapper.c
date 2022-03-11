@@ -162,6 +162,7 @@ status_t create_libxc_wrapper(xen_instance_t *xen)
     wrapper->xc_vcpu_setcontext = dlsym(wrapper->handle, "xc_vcpu_setcontext");
     wrapper->xc_domain_hvm_getcontext = dlsym(wrapper->handle, "xc_domain_hvm_getcontext");
     wrapper->xc_domain_hvm_getcontext_partial = dlsym(wrapper->handle, "xc_domain_hvm_getcontext_partial");
+    wrapper->xc_domain_hvm_getcontext_size = dlsym(wrapper->handle, "xc_domain_hvm_getcontext_size");
     wrapper->xc_domain_hvm_setcontext = dlsym(wrapper->handle, "xc_domain_hvm_setcontext");
     wrapper->xc_domain_getinfo = dlsym(wrapper->handle, "xc_domain_getinfo");
     wrapper->xc_domain_getinfolist = dlsym(wrapper->handle, "xc_domain_getinfolist");
@@ -219,6 +220,7 @@ status_t create_libxc_wrapper(xen_instance_t *xen)
     wrapper->xc_altp2m_change_gfn = dlsym ( wrapper->handle, "xc_altp2m_change_gfn" );
     wrapper->xc_monitor_debug_exceptions = dlsym(wrapper->handle, "xc_monitor_debug_exceptions");
     wrapper->xc_monitor_cpuid = dlsym(wrapper->handle, "xc_monitor_cpuid");
+    wrapper->xc_monitor_vmexit = dlsym(wrapper->handle, "xc_monitor_vmexit");
     wrapper->xc_hvm_param_get = dlsym(wrapper->handle, "xc_hvm_param_get");
     wrapper->xc_hvm_param_set = dlsym(wrapper->handle, "xc_hvm_param_set");
     wrapper->xc_get_hvm_param = dlsym(wrapper->handle, "xc_get_hvm_param");

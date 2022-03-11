@@ -1085,7 +1085,7 @@ xen_get_vcpumtrr_hvm(
             vcpu,
             &mtrr,
             sizeof mtrr)) {
-        errprint("Failed to get context information (HVM domain).\n");
+        errprint("Failed to get context information (HVM domain) for vcpumtrr.\n");
         return VMI_FAILURE;
     }
 
@@ -1114,7 +1114,14 @@ xen_get_vcpureg_hvm(
                 vcpu,
                 &hw_ctxt,
                 sizeof hw_ctxt)) {
-            errprint("Failed to get context information (HVM domain).\n");
+
+            unsigned long size = xen->libxcw.xc_domain_hvm_getcontext_size(xen->xchandle,
+                xen->domainid,
+                HVM_SAVE_CODE(CPU),
+                vcpu);
+
+            errprint("Failed to get context information (HVM domain). hvm_hw_cpu size: %lu, xen size: %lu\n",
+                     sizeof(struct hvm_hw_cpu), size);
             ret = VMI_FAILURE;
             goto _bail;
         }
@@ -1371,6 +1378,12 @@ xen_get_vcpureg_hvm(
         case TSC:
             *value = (reg_t) hvm_cpu->tsc;
             break;
+        case INT_STATE:
+            *value = (reg_t) hvm_cpu->interruptibility_state;
+            break;
+        case PENDING_DBG:
+            *value = (reg_t) hvm_cpu->pending_dbg;
+            break;
         default:
             ret = VMI_FAILURE;
             break;
@@ -1396,7 +1409,15 @@ xen_get_vcpuregs_hvm(
                 vcpu,
                 &hw_ctxt,
                 sizeof hw_ctxt)) {
-            errprint("Failed to get context information (HVM domain).\n");
+
+            unsigned long size = xen->libxcw.xc_domain_hvm_getcontext_size(xen->xchandle,
+                xen->domainid,
+                HVM_SAVE_CODE(CPU),
+                vcpu);
+
+            errprint("Failed to get context information (HVM domain). hvm_hw_cpu size: %lu, xen size: %lu\n",
+                     sizeof(struct hvm_hw_cpu), size);
+
             return VMI_FAILURE;
         }
         hvm_cpu = &hw_ctxt;
@@ -1791,6 +1812,13 @@ xen_set_vcpureg_hvm(
         case TSC:
             cpu->tsc = value;
             break;
+        case INT_STATE:
+            cpu->interruptibility_state = value;
+            break;
+        case PENDING_DBG:
+            cpu->pending_dbg = value;
+            break;
+
         default:
             ret = VMI_FAILURE;
             break;

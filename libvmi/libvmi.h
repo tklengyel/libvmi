@@ -382,6 +382,9 @@ typedef uint64_t reg_t;
 #define MSR_IA32_MISC_ENABLE        151
 #define MSR_HYPERVISOR              152
 
+#define INT_STATE                   153
+#define PENDING_DBG                 154
+
 /**
  * Special generic case for specifying arbitrary MSRs
  */
